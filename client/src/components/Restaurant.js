@@ -11,7 +11,7 @@ function Home() {
 	const { id } = useParams();
 
 	useEffect(() => {
-		fetch(`http://127.0.0.1:5555/restaurants/${id}`).then((r) => {
+		fetch(`/restaurants/${id}`).then((r) => {
 			if (r.ok) {
 				r.json().then((restaurant) => {
 					console.log(restaurant);

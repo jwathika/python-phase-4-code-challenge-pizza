@@ -2,7 +2,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from models import db, Restaurant, RestaurantPizza, Pizza
 from flask_migrate import Migrate
-from flask import Flask, json, request, make_response
+from flask import Flask, json, render_template, request, make_response
 from flask_restful import Api, Resource, abort
 import os
 from flask_cors import CORS
@@ -10,7 +10,12 @@ from flask_cors import CORS
 # BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 # DATABASE = os.environ.get("DB_URI", f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}")
 # db = SQLAlchemy()
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    static_url_path="",
+    static_folder="../client/build",
+    template_folder="../client/build",
+)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URI")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.json.compact = False
@@ -24,9 +29,14 @@ api = Api(app)
 CORS(app)
 
 
-@app.route("/")
-def index():
-    return "<h1>Code challenge</h1>"
+@app.errorhandler(404)
+def not_found(e):
+    return render_template("index.html")
+
+
+# @app.route("/")
+# def index():
+#     return "<h1>Code challenge</h1>"
 
 
 class Restaurants(Resource):
