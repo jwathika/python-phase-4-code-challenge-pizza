@@ -11,7 +11,7 @@ function Home() {
 	const { id } = useParams();
 
 	useEffect(() => {
-		fetch(`/restaurants/${id}`).then((r) => {
+		fetch(`http://127.0.0.1:5555/restaurants/${id}`).then((r) => {
 			if (r.ok) {
 				r.json().then((restaurant) => {
 					console.log(restaurant);
@@ -48,7 +48,7 @@ function Home() {
 				<h1>{restaurant.name}</h1>
 				<p>{restaurant.address}</p>
 			</div>
-			{/* <div className='card'>
+			<div className='card'>
 				<h2>Pizza Menu</h2>
 				{restaurant.restaurant_pizzas.map((restaurant_pizza) => (
 					<div key={restaurant_pizza.pizza.id}>
@@ -65,7 +65,7 @@ function Home() {
 			<div className='card'>
 				<h3>Add New Pizza</h3>
 				<PizzaForm restaurantId={restaurant.id} onAddPizza={handleAddPizza} />
-			</div> */}
+			</div>
 		</section>
 	);
 }
