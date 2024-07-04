@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from models import db, Restaurant, RestaurantPizza, Pizza
 from flask_migrate import Migrate
-from flask import Flask, request, make_response
+from flask import Flask, json, request, make_response
 from flask_restful import Api, Resource, abort
 import os
 
@@ -37,6 +37,34 @@ class Restaurants(Resource):
         return response
 
 
+class Pizzas(Resource):
+    def get(self):
+        pizzas: list = [
+            res.to_dict(only=("id", "ingredients", "name")) for res in Pizza.query.all()
+        ]
+        response = make_response(pizzas, 200)
+        return response
+
+
+class ResPizzas(Resource):
+    def post(self):
+        price = (request.form["price"],)
+        pizza_id = request.form["pizza_id"]
+        restaurant_id = request.form["restaurant_id"]
+        if not (price and pizza_id and restaurant_id):
+            return jsonify({"errors": ["Missing required fields"]}), 400
+        new_data = RestaurantPizza(
+            price=price, pizza_id=pizza_id, restaurant_id=restaurant_id
+        )
+        db.session.add(new_data)
+        db.session.commit()
+        pizza = Pizza.query.get(pizza_id)
+        restaurant = Restaurant.query.get(restaurant_id).to_dict()
+
+        response = make_response(res, 200)
+        return response
+
+
 class RestaurantsbyID(Resource):
     def get(self, id):
 
@@ -60,15 +88,13 @@ class RestaurantsbyID(Resource):
         db.session.delete(restaurant)
         db.session.commit()
         restaurant_dict = {}
-        return make_response(restaurant_dict, 200)
-
-
-class Pizzas(Resource):
-    pass
+        return make_response(restaurant_dict, 204)
 
 
 api.add_resource(Restaurants, "/restaurants")
 api.add_resource(RestaurantsbyID, "/restaurants/<int:id>")
+api.add_resource(Pizzas, "/pizzas")
+api.add_resource(ResPizzas, "/restaurant_pizzas")
 
 if __name__ == "__main__":
     app.run(port=5555, debug=True)
