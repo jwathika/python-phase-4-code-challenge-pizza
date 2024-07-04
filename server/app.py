@@ -5,6 +5,7 @@ from flask import Flask, request, make_response
 from flask_restful import Api, Resource
 import os
 
+
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DATABASE = os.environ.get("DB_URI", f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}")
 
@@ -23,6 +24,16 @@ api = Api(app)
 @app.route("/")
 def index():
     return "<h1>Code challenge</h1>"
+
+
+class Restaurants(Resource):
+    def get(self):
+        restaurants = [res.to_dict() for res in Restaurant.query.all()]
+        response = make_response(restaurants, 200)
+        return response
+
+
+api.add_resource(Restaurants, "/restaurant")
 
 
 if __name__ == "__main__":
