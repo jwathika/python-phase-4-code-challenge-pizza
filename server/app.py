@@ -48,21 +48,22 @@ class Pizzas(Resource):
 
 class ResPizzas(Resource):
     def post(self):
-        price = (request.form["price"],)
-        pizza_id = request.form["pizza_id"]
-        restaurant_id = request.form["restaurant_id"]
-        if not (price and pizza_id and restaurant_id):
-            return jsonify({"errors": ["Missing required fields"]}), 400
-        new_data = RestaurantPizza(
-            price=price, pizza_id=pizza_id, restaurant_id=restaurant_id
-        )
-        db.session.add(new_data)
-        db.session.commit()
-        pizza = Pizza.query.get(pizza_id)
-        restaurant = Restaurant.query.get(restaurant_id).to_dict()
-
-        response = make_response(res, 200)
-        return response
+        data = request.get_json()
+        try:
+            new_restaurant_pizza = RestaurantPizza(
+                price=data["price"],
+                pizza_id=data["pizza_id"],
+                restaurant_id=data["restaurant_id"],
+            )
+            db.session.add(new_restaurant_pizza)
+            db.session.commit()
+            return new_restaurant_pizza.to_dict(), 201
+        # except ValueError:
+        #     db.session.rollback()
+        #     abort(400, errors="Price must be between 1 and 30")
+        except Exception as e:
+            db.session.rollback()
+            abort(400, errors=["validation errors"])
 
 
 class RestaurantsbyID(Resource):
@@ -76,8 +77,8 @@ class RestaurantsbyID(Resource):
         if not restaurant:
             abort(404, error="Restaurant not found")
 
-        restaurant_dict = restaurant.to_dict(only=("id", "name", "address"))
-        print(type(restaurant_dict))
+        restaurant_dict = restaurant.to_dict()
+        # print(type(restaurant_dict))
 
         return make_response(restaurant_dict, 200)
 
