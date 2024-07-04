@@ -33,14 +33,15 @@ class Restaurants(Resource):
             for res in Restaurant.query.all()
         ]
         response = make_response(restaurants, 200)
+        print(type(restaurants))
         return response
 
 
 class RestaurantsbyID(Resource):
-    def get(self, id: int):
+    def get(self, id):
 
-        if not isinstance(id, int):
-            return make_response("ID must be an integer", 400)
+        # if not isinstance(id, int):
+        #     return make_response("ID must be an integer", 400)
 
         restaurant = Restaurant.query.filter_by(id=id).first()
 
@@ -48,6 +49,7 @@ class RestaurantsbyID(Resource):
             abort(404, error="Restaurant not found")
 
         restaurant_dict = restaurant.to_dict(only=("id", "name", "address"))
+        print(type(restaurant_dict))
 
         return make_response(restaurant_dict, 200)
 
@@ -65,8 +67,8 @@ class Pizzas(Resource):
     pass
 
 
-api.add_resource(Restaurants, "/restaurant")
-api.add_resource(RestaurantsbyID, "/restaurant/<int:id>")
+api.add_resource(Restaurants, "/restaurants")
+api.add_resource(RestaurantsbyID, "/restaurants/<int:id>")
 
 if __name__ == "__main__":
     app.run(port=5555, debug=True)
