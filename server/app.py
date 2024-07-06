@@ -1,32 +1,42 @@
-#!/usr/bin/env python3
+from flask import Flask, render_template, request, make_response
 from flask_sqlalchemy import SQLAlchemy
-from models import db, Restaurant, RestaurantPizza, Pizza
 from flask_migrate import Migrate
-from flask import Flask, json, render_template, request, make_response
 from flask_restful import Api, Resource, abort
-import os
 from flask_cors import CORS
+from flask_caching import Cache
+import os
+import logging
 
-# BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-# DATABASE = os.environ.get("DB_URI", f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}")
-# db = SQLAlchemy()
+from models import db, Restaurant, RestaurantPizza, Pizza
+
+# Setup Flask
 app = Flask(
     __name__,
     static_url_path="",
     static_folder="../client/build",
     template_folder="../client/build",
 )
+
+# Configure Flask app
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URI")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["CACHE_TYPE"] = "RedisCache"
+app.config["CACHE_REDIS_HOST"] = os.environ.get("CACHE_REDIS_HOST")
+app.config["CACHE_REDIS_PORT"] = 14610
+app.config["CACHE_REDIS_DB"] = 0
+app.config["CACHE_REDIS_PASSWORD"] = os.environ.get("CACHE_REDIS_PASSWORD")
+app.config["CACHE_DEFAULT_TIMEOUT"] = 700  # Cache timeout in seconds
 app.json.compact = False
 
+# Initialize extensions
 migrate = Migrate(app, db)
-
 db.init_app(app)
-
 api = Api(app)
-
 CORS(app)
+cache = Cache(app)
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
 
 
 @app.errorhandler(404)
@@ -34,29 +44,43 @@ def not_found(e):
     return render_template("index.html")
 
 
-# @app.route("/")
-# def index():
-#     return "<h1>Code challenge</h1>"
+def fetch_from_cache_or_db(cache_key, db_query_fn):
+    """Retrieve data from cache or fallback to database."""
+    try:
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            logging.info(f"Cache hit for key: {cache_key}")
+            return make_response(cached_data, 200)
+
+        # Fetch from DB
+        data = db_query_fn()
+        cache.set(cache_key, data)
+        return make_response(data, 200)
+    except Exception as e:
+        logging.error(f"Error fetching data: {str(e)}")
+        return make_response({"error": "Database is down and no cache available"}, 500)
 
 
 class Restaurants(Resource):
     def get(self):
-        restaurants: list = [
-            res.to_dict(only=("id", "name", "address"))
-            for res in Restaurant.query.all()
-        ]
-        response = make_response(restaurants, 200)
-        print(type(restaurants))
-        return response
+        return fetch_from_cache_or_db(
+            "restaurants",
+            lambda: [
+                res.to_dict(only=("id", "name", "address"))
+                for res in Restaurant.query.all()
+            ],
+        )
 
 
 class Pizzas(Resource):
     def get(self):
-        pizzas: list = [
-            res.to_dict(only=("id", "ingredients", "name")) for res in Pizza.query.all()
-        ]
-        response = make_response(pizzas, 200)
-        return response
+        return fetch_from_cache_or_db(
+            "pizzas",
+            lambda: [
+                res.to_dict(only=("id", "ingredients", "name"))
+                for res in Pizza.query.all()
+            ],
+        )
 
 
 class ResPizzas(Resource):
@@ -71,38 +95,32 @@ class ResPizzas(Resource):
             db.session.add(new_restaurant_pizza)
             db.session.commit()
             return new_restaurant_pizza.to_dict(), 201
-        # except ValueError:
-        #     db.session.rollback()
-        #     abort(400, errors="Price must be between 1 and 30")
         except Exception as e:
             db.session.rollback()
+            logging.error(f"Error creating RestaurantPizza: {str(e)}")
             abort(400, errors=["validation errors"])
 
 
 class RestaurantsbyID(Resource):
     def get(self, id):
-
-        # if not isinstance(id, int):
-        #     return make_response("ID must be an integer", 400)
-
-        restaurant = Restaurant.query.filter_by(id=id).first()
-
-        if not restaurant:
-            abort(404, error="Restaurant not found")
-
-        restaurant_dict = restaurant.to_dict()
-        # print(type(restaurant_dict))
-
-        return make_response(restaurant_dict, 200)
+        return fetch_from_cache_or_db(
+            f"restaurant_{id}",
+            lambda: Restaurant.query.filter_by(id=id).first_or_404().to_dict(),
+        )
 
     def delete(self, id):
-        restaurant = Restaurant.query.filter_by(id=id).first()
-        if not restaurant:
-            abort(404, error="Restaurant not found")
-        db.session.delete(restaurant)
-        db.session.commit()
-        restaurant_dict = {}
-        return make_response(restaurant_dict, 204)
+        try:
+            restaurant = Restaurant.query.filter_by(id=id).first()
+            if not restaurant:
+                abort(404, error="Restaurant not found")
+            db.session.delete(restaurant)
+            db.session.commit()
+            cache.delete(f"restaurant_{id}")
+            return make_response({}, 204)
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Error deleting Restaurant: {str(e)}")
+            abort(400, errors=["deletion errors"])
 
 
 api.add_resource(Restaurants, "/restaurants")

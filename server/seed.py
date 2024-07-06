@@ -2,6 +2,9 @@
 
 from app import app
 from models import db, Restaurant, Pizza, RestaurantPizza
+from faker import Faker
+
+fake = Faker()
 
 with app.app_context():
 
@@ -13,29 +16,33 @@ with app.app_context():
     RestaurantPizza.query.delete()
 
     print("Creating restaurants...")
-    shack = Restaurant(name="Karen's Pizza Shack", address='address1')
-    bistro = Restaurant(name="Sanjay's Pizza", address='address2')
-    palace = Restaurant(name="Kiki's Pizza", address='address3')
-    restaurants = [shack, bistro, palace]
+    restaurants = []
+    for _ in range(10):
+        restaurant = Restaurant(name=fake.company(), address=fake.address())
+        restaurants.append(restaurant)
 
     print("Creating pizzas...")
-
-    cheese = Pizza(name="Emma", ingredients="Dough, Tomato Sauce, Cheese")
-    pepperoni = Pizza(
-        name="Geri", ingredients="Dough, Tomato Sauce, Cheese, Pepperoni")
-    california = Pizza(
-        name="Melanie", ingredients="Dough, Sauce, Ricotta, Red peppers, Mustard")
-    pizzas = [cheese, pepperoni, california]
+    pizzas = []
+    for _ in range(10):
+        pizza = Pizza(
+            name=fake.first_name(),
+            ingredients=fake.words(nb=4, ext_word_list=None, unique=True),
+        )
+        pizzas.append(pizza)
 
     print("Creating RestaurantPizza...")
+    restaurant_pizzas = []
+    for _ in range(10):
+        restaurant_pizza = RestaurantPizza(
+            restaurant=fake.random_element(elements=restaurants),
+            pizza=fake.random_element(elements=pizzas),
+            price=fake.random_int(min=1, max=20),
+        )
+        restaurant_pizzas.append(restaurant_pizza)
 
-    pr1 = RestaurantPizza(restaurant=shack, pizza=cheese, price=1)
-    pr2 = RestaurantPizza(restaurant=bistro, pizza=pepperoni, price=4)
-    pr3 = RestaurantPizza(restaurant=palace, pizza=california, price=5)
-    restaurantPizzas = [pr1, pr2, pr3]
     db.session.add_all(restaurants)
     db.session.add_all(pizzas)
-    db.session.add_all(restaurantPizzas)
+    db.session.add_all(restaurant_pizzas)
     db.session.commit()
 
     print("Seeding done!")
